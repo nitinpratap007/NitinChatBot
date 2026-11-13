@@ -135,9 +135,11 @@ export default function Admin() {
       <div style={{ maxWidth: 440, margin: '4rem auto' }}>
         <div className="card" style={{ padding: '2.5rem', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🔐</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.4rem' }}>Admin Authentication</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '1.75rem' }}>
-            Protected area. Please enter your administrator credentials to manage API keys, courses, and resources.
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+            Admin Authentication
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.75rem', lineHeight: 1.5 }}>
+            Protected area. Please enter your administrator password to manage API keys, courses, and resources.
           </p>
 
           <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
@@ -153,7 +155,7 @@ export default function Admin() {
               <input
                 type="password"
                 className="form-control"
-                placeholder="Enter admin password"
+                placeholder="Enter password"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 required
