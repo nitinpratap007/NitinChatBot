@@ -256,7 +256,52 @@ export async function deleteCollection(id) {
 }
 
 // ── AI Chatbot ───────────────────────────────────────────────
+async function callDirectGemini(apiKey, question) {
+  const prompt = `You are NitinChatBot, a helpful, encouraging student learning assistant.
+Answer clearly in Markdown with code blocks, bullet points, and practical explanations where applicable.
+
+User Question: ${question}`;
+
+  const payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+  };
+
+  // Try 2.5-flash first, then fallback to 1.5-flash
+  const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    } catch (err) {
+      console.warn(`Gemini model ${model} failed, trying next:`, err.message);
+    }
+  }
+  throw new Error('Could not get response from Gemini API.');
+}
+
 export async function sendQuery(question, student = 'Student') {
+  // 1. If user provided a personal Gemini API key in browser settings, use it directly!
+  const userGeminiKey = localStorage.getItem('ncb_gemini_key');
+  if (userGeminiKey) {
+    try {
+      const answer = await callDirectGemini(userGeminiKey, question);
+      return { answer, courses: [] };
+    } catch (err) {
+      console.error('Direct Gemini call failed:', err.message);
+      // continue to backend or fallback
+    }
+  }
+
+  // 2. Try backend Netlify function
   try {
     const data = await request('POST', '/query', { question, student });
     if (data && data.answer) return data;
