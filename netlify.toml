@@ -1,12 +1,13 @@
 [build]
   publish = "www"
   functions = "netlify/functions"
-  command = "npm install"
+  command = "npm run build"
 
 [functions]
   node_bundler = "esbuild"
   included_files = []
 
+# ── Existing API routes (preserved) ──────────────────────────
 [[redirects]]
   from = "/api/query"
   to = "/.netlify/functions/query"
@@ -30,4 +31,31 @@
 [[redirects]]
   from = "/api/admin/queries"
   to = "/.netlify/functions/admin-queries"
+  status = 200
+
+# ── New WA-C1 API routes ──────────────────────────────────────
+[[redirects]]
+  from = "/api/notes"
+  to = "/.netlify/functions/notes"
+  status = 200
+
+[[redirects]]
+  from = "/api/notes/:id"
+  to = "/.netlify/functions/notes"
+  status = 200
+
+[[redirects]]
+  from = "/api/collections"
+  to = "/.netlify/functions/collections"
+  status = 200
+
+[[redirects]]
+  from = "/api/collections/:id"
+  to = "/.netlify/functions/collections"
+  status = 200
+
+# ── React SPA fallback (MUST be last — only catches /dashboard/*) ──
+[[redirects]]
+  from = "/dashboard/*"
+  to = "/dashboard/index.html"
   status = 200

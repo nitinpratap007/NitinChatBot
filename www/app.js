@@ -51,6 +51,27 @@ async function apiPost(endpoint, data) {
     }
 }
 
+async function apiPut(endpoint, data) {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'PUT',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(data)
+        });
+        if (response.status === 401 || response.status === 403) {
+            if(window.location.pathname.includes('admin.html')) {
+                window.location.href = 'admin-login.html';
+            }
+            throw new Error('Unauthorized');
+        }
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('API PUT Error:', error);
+        throw error;
+    }
+}
+
 async function apiDelete(endpoint) {
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
