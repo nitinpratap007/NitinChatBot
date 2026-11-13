@@ -322,14 +322,24 @@ export async function sendQuery(question, student = 'Student') {
   return { answer, courses: [] };
 }
 
-// ── Admin Authentication & Session Security ──────────────────
+// ── Admin Authentication & Session Security (SHA-256 Hashed) ──
+async function hashText(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Cryptographic one-way SHA-256 hash (never exposes raw password)
+const MASTER_HASH = '71756598c14d9b4bfa283ba4864ebc394c86cbbe32840742f36f6d54cf531dc1';
+
 export function isAdminLoggedIn() {
   return !!localStorage.getItem('ncb_admin_session');
 }
 
 export async function adminLogin(password) {
-  const currentPassword = localStorage.getItem('ncb_admin_password') || 'admin123';
-  if (password === currentPassword) {
+  const inputHash = await hashText(password);
+  const currentHash = localStorage.getItem('ncb_admin_hash') || MASTER_HASH;
+  if (inputHash === currentHash) {
     const sessionToken = 'admin_sess_' + Math.random().toString(36).substring(2) + Date.now();
     localStorage.setItem('ncb_admin_session', sessionToken);
     return { success: true, token: sessionToken };
@@ -341,12 +351,14 @@ export function adminLogout() {
   localStorage.removeItem('ncb_admin_session');
 }
 
-export function updateAdminPassword(oldPass, newPass) {
+export async function updateAdminPassword(oldPass, newPass) {
   if (!isAdminLoggedIn()) throw new Error('Unauthorized');
-  const current = localStorage.getItem('ncb_admin_password') || 'admin123';
-  if (oldPass !== current) throw new Error('Current password does not match.');
+  const oldHash = await hashText(oldPass);
+  const currentHash = localStorage.getItem('ncb_admin_hash') || MASTER_HASH;
+  if (oldHash !== currentHash) throw new Error('Current password does not match.');
   if (!newPass || newPass.trim().length < 4) throw new Error('New password must be at least 4 characters.');
-  localStorage.setItem('ncb_admin_password', newPass.trim());
+  const newHash = await hashText(newPass.trim());
+  localStorage.setItem('ncb_admin_hash', newHash);
   return { success: true };
 }
 

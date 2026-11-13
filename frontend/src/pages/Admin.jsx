@@ -116,11 +116,11 @@ export default function Admin() {
     }
   }
 
-  function handlePasswordChange(e) {
+  async function handlePasswordChange(e) {
     e.preventDefault();
     setPassMsg({ error: '', success: '' });
     try {
-      updateAdminPassword(oldPass, newPass);
+      await updateAdminPassword(oldPass, newPass);
       setPassMsg({ error: '', success: '✅ Admin Password updated successfully!' });
       setOldPass('');
       setNewPass('');
@@ -153,7 +153,7 @@ export default function Admin() {
               <input
                 type="password"
                 className="form-control"
-                placeholder="Enter password (default: admin123)"
+                placeholder="Enter admin password"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 required
