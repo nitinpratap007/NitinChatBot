@@ -1,7 +1,7 @@
 # NitinChatBot — AI-Powered Student Learning Assistant
 
 > **WA-C1 Full-Stack Mini Project**  
-> Live: https://nitinchatbot-apk.netlify.app
+> Live: https://nitinchatbot.netlify.app
 
 ---
 
