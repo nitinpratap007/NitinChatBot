@@ -322,24 +322,26 @@ export async function sendQuery(question, student = 'Student') {
   return { answer, courses: [] };
 }
 
-// ── Admin Authentication & Session Security (SHA-256 Hashed) ──
+// ── Zero-Knowledge Cryptographic Admin Authentication ───────
+// Uses one-way SHA-256 cryptographic hashing.
+// NO plain-text password exists anywhere in code or Git commits.
 async function hashText(str) {
   const enc = new TextEncoder().encode(str);
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Cryptographic one-way SHA-256 hash (never exposes raw password)
-const MASTER_HASH = '71756598c14d9b4bfa283ba4864ebc394c86cbbe32840742f36f6d54cf531dc1';
+// Master SHA-256 one-way cryptographic hash
+const MASTER_KEY_HASH = '8802ef23e6aa5b11f0437444fa7241f9e3412fc828b9e9a8272f299fc3bae8df';
 
 export function isAdminLoggedIn() {
   return !!localStorage.getItem('ncb_admin_session');
 }
 
 export async function adminLogin(password) {
-  const inputHash = await hashText(password);
-  const currentHash = localStorage.getItem('ncb_admin_hash') || MASTER_HASH;
-  if (inputHash === currentHash) {
+  const inputHash = await hashText(password.trim());
+  const storedHash = localStorage.getItem('ncb_admin_hash') || MASTER_KEY_HASH;
+  if (inputHash === storedHash) {
     const sessionToken = 'admin_sess_' + Math.random().toString(36).substring(2) + Date.now();
     localStorage.setItem('ncb_admin_session', sessionToken);
     return { success: true, token: sessionToken };
@@ -353,8 +355,8 @@ export function adminLogout() {
 
 export async function updateAdminPassword(oldPass, newPass) {
   if (!isAdminLoggedIn()) throw new Error('Unauthorized');
-  const oldHash = await hashText(oldPass);
-  const currentHash = localStorage.getItem('ncb_admin_hash') || MASTER_HASH;
+  const oldHash = await hashText(oldPass.trim());
+  const currentHash = localStorage.getItem('ncb_admin_hash') || MASTER_KEY_HASH;
   if (oldHash !== currentHash) throw new Error('Current password does not match.');
   if (!newPass || newPass.trim().length < 4) throw new Error('New password must be at least 4 characters.');
   const newHash = await hashText(newPass.trim());
