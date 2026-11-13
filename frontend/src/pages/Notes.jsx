@@ -1,7 +1,70 @@
 import { useEffect, useState, useCallback } from 'react';
+import { marked } from 'marked';
 import { fetchNotes, createNote, updateNote, deleteNote, fetchCollections } from '../api';
 
-/* ── NoteModal ──────────────────────────────────────────────── */
+/* ── NoteViewModal ─────────────────────────────────────────── */
+function NoteViewModal({ note, onEdit, onClose }) {
+  const [copied, setCopied] = useState(false);
+
+  function copyToClipboard() {
+    navigator.clipboard.writeText(note.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const htmlContent = marked.parse(note.content || '');
+
+  return (
+    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 680 }}>
+        <div className="modal-header" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
+              {note.study_collections?.name && (
+                <span className="badge">{note.study_collections.name}</span>
+              )}
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {new Date(note.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
+              {note.title}
+            </h2>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          <div
+            className="note-rendered-content"
+            style={{ lineHeight: 1.7, fontSize: '0.95rem', color: '#e2e8f0' }}
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
+          />
+        </div>
+
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          <button className="btn btn-secondary btn-sm" onClick={copyToClipboard}>
+            {copied ? '✅ Copied!' : '📋 Copy Text'}
+          </button>
+          <div style={{ display: 'flex', gap: '0.6rem' }}>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => { onClose(); onEdit(note); }}
+            >
+              ✏️ Edit Note
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── NoteModal (Create / Edit) ─────────────────────────────── */
 function NoteModal({ mode, initial, collections, onSave, onClose }) {
   const [title,        setTitle]        = useState(initial?.title        || '');
   const [content,      setContent]      = useState(initial?.content      || '');
@@ -12,9 +75,9 @@ function NoteModal({ mode, initial, collections, onSave, onClose }) {
 
   function validate() {
     const e = {};
-    if (!title.trim())              e.title   = 'Title is required';
-    else if (title.trim().length > 200) e.title = 'Max 200 characters';
-    if (!content.trim())            e.content = 'Content is required';
+    if (!title.trim())                  e.title   = 'Title is required';
+    else if (title.trim().length > 200) e.title   = 'Max 200 characters';
+    if (!content.trim())                e.content = 'Content is required';
     else if (content.trim().length > 10000) e.content = 'Max 10,000 characters';
     return e;
   }
@@ -73,12 +136,12 @@ function NoteModal({ mode, initial, collections, onSave, onClose }) {
             </div>
 
             <div className="form-group">
-              <label>Content *</label>
+              <label>Content * (Markdown supported)</label>
               <textarea
                 className={`form-control${errors.content ? ' error' : ''}`}
                 value={content}
                 onChange={e => { setContent(e.target.value); setErrors(p => ({ ...p, content: '' })); }}
-                placeholder="Write your note here… (markdown supported)"
+                placeholder="Write your note here… supports **bold**, lists, `code`"
                 rows={6}
                 maxLength={10000}
               />
@@ -126,6 +189,7 @@ export default function Notes() {
   const [error,       setError]       = useState(null);
   const [filterCol,   setFilterCol]   = useState('');
   const [modal,       setModal]       = useState(null); // null | { mode, note? }
+  const [viewNote,    setViewNote]    = useState(null); // null | note
   const [deletingId,  setDeletingId]  = useState(null);
 
   const load = useCallback(() => {
@@ -156,14 +220,16 @@ export default function Notes() {
     setModal(null);
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id, e) {
+    if (e) e.stopPropagation();
     if (!window.confirm('Delete this note? This cannot be undone.')) return;
     setDeletingId(id);
     try {
       await deleteNote(id);
       setNotes(prev => prev.filter(n => n.id !== id));
-    } catch (e) {
-      alert('Failed to delete: ' + e.message);
+      if (viewNote && viewNote.id === id) setViewNote(null);
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
     } finally {
       setDeletingId(null);
     }
@@ -178,7 +244,7 @@ export default function Notes() {
       <div className="page-header">
         <div>
           <h1>📝 My Notes</h1>
-          <p>Create, organise and manage your learning notes</p>
+          <p>Create, view, organize, and edit your personal study notes</p>
         </div>
         <button className="btn btn-primary" onClick={() => setModal({ mode: 'create' })}>
           + New Note
@@ -244,9 +310,16 @@ export default function Notes() {
       {!loading && !error && filtered.length > 0 && (
         <div className="notes-list">
           {filtered.map(note => (
-            <div key={note.id} className="card note-card">
+            <div
+              key={note.id}
+              className="card note-card"
+              style={{ cursor: 'pointer', transition: 'transform 0.15s ease, border-color 0.15s ease' }}
+              onClick={() => setViewNote(note)}
+            >
               <div className="note-body">
-                <h3>{note.title}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <h3 style={{ margin: 0 }}>{note.title}</h3>
+                </div>
                 <p className="note-preview">{note.content}</p>
                 <div className="note-meta">
                   {note.study_collections?.name && (
@@ -258,15 +331,26 @@ export default function Notes() {
                   )}
                 </div>
               </div>
-              <div className="note-actions">
+              <div className="note-actions" onClick={e => e.stopPropagation()}>
                 <button
-                  className="btn btn-sm btn-secondary btn-icon"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setViewNote(note)}
+                  title="View Note"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  👁️ View
+                </button>
+                <button
+                  className="btn btn-sm btn-secondary"
                   onClick={() => setModal({ mode: 'edit', note })}
-                  title="Edit"
-                >✏️</button>
+                  title="Edit Note"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  ✏️ Edit
+                </button>
                 <button
                   className="btn btn-sm btn-danger btn-icon"
-                  onClick={() => handleDelete(note.id)}
+                  onClick={e => handleDelete(note.id, e)}
                   disabled={deletingId === note.id}
                   title="Delete"
                 >
@@ -278,7 +362,16 @@ export default function Notes() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Note View Modal */}
+      {viewNote && (
+        <NoteViewModal
+          note={viewNote}
+          onEdit={note => setModal({ mode: 'edit', note })}
+          onClose={() => setViewNote(null)}
+        />
+      )}
+
+      {/* Edit / Create Modal */}
       {modal && (
         <NoteModal
           mode={modal.mode}

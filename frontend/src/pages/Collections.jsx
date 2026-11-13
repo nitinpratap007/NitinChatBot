@@ -1,9 +1,91 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  fetchCollections, createCollection, updateCollection, deleteCollection,
+  fetchCollections, createCollection, updateCollection, deleteCollection, fetchNotes
 } from '../api';
 
-/* ── CollectionModal ────────────────────────────────────────── */
+/* ── CollectionNotesModal ───────────────────────────────────── */
+function CollectionNotesModal({ collection, onClose }) {
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchNotes(collection.id)
+      .then(d => setNotes(d.notes || []))
+      .finally(() => setLoading(false));
+  }, [collection.id]);
+
+  return (
+    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 640 }}>
+        <div className="modal-header">
+          <div>
+            <span className="badge" style={{ marginBottom: '0.35rem', display: 'inline-block' }}>Collection</span>
+            <h2 style={{ fontSize: '1.3rem', margin: 0, color: '#f8fafc' }}>{collection.name}</h2>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
+            {collection.description || 'No description provided.'}
+          </p>
+
+          <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+            Notes in this Collection ({notes.length})
+          </h4>
+
+          {loading ? (
+            <div className="loading-wrap" style={{ padding: '2rem' }}>
+              <div className="spinner spinner-sm" />
+              <span>Loading notes…</span>
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="empty-state" style={{ padding: '2rem' }}>
+              <div className="empty-icon">📝</div>
+              <h4>No notes in this collection yet</h4>
+              <p>Create a note and assign it to "{collection.name}".</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {notes.map(n => (
+                <div
+                  key={n.id}
+                  style={{
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <strong style={{ fontSize: '0.92rem', color: '#f8fafc', display: 'block' }}>{n.title}</strong>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    {n.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => { onClose(); navigate('/notes'); }}
+          >
+            ✍️ Add Note to Collection
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── CollectionModal (Create / Edit) ────────────────────────── */
 function CollectionModal({ mode, initial, onSave, onClose }) {
   const [name,        setName]        = useState(initial?.name        || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -13,8 +95,8 @@ function CollectionModal({ mode, initial, onSave, onClose }) {
 
   function validate() {
     const e = {};
-    if (!name.trim())              e.name = 'Name is required';
-    else if (name.trim().length > 100) e.name = 'Max 100 characters';
+    if (!name.trim())                  e.name        = 'Name is required';
+    else if (name.trim().length > 100) e.name        = 'Max 100 characters';
     if (description.trim().length > 500) e.description = 'Max 500 characters';
     return e;
   }
@@ -104,6 +186,7 @@ export default function Collections() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
   const [modal,       setModal]       = useState(null);
+  const [viewCol,     setViewCol]     = useState(null); // null | collection
   const [deletingId,  setDeletingId]  = useState(null);
 
   const load = useCallback(() => {
@@ -127,14 +210,16 @@ export default function Collections() {
     setModal(null);
   }
 
-  async function handleDelete(id, name) {
+  async function handleDelete(id, name, e) {
+    if (e) e.stopPropagation();
     if (!window.confirm(`Delete collection "${name}"? Notes inside will become uncategorised.`)) return;
     setDeletingId(id);
     try {
       await deleteCollection(id);
       setCollections(prev => prev.filter(c => c.id !== id));
-    } catch (e) {
-      alert('Failed to delete: ' + e.message);
+      if (viewCol && viewCol.id === id) setViewCol(null);
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
     } finally {
       setDeletingId(null);
     }
@@ -145,7 +230,7 @@ export default function Collections() {
       <div className="page-header">
         <div>
           <h1>🗂️ Study Collections</h1>
-          <p>Group your notes by topic for organised learning</p>
+          <p>Group your notes by topic for organised and structured learning</p>
         </div>
         <button className="btn btn-primary" onClick={() => setModal({ mode: 'create' })}>
           + New Collection
@@ -185,15 +270,29 @@ export default function Collections() {
       {!loading && !error && collections.length > 0 && (
         <div className="collections-grid">
           {collections.map(col => (
-            <div key={col.id} className="card collection-card">
+            <div
+              key={col.id}
+              className="card collection-card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setViewCol(col)}
+            >
               <div>
-                <h3>{col.name}</h3>
-                <p>{col.description || <em style={{ opacity: 0.5 }}>No description</em>}</p>
+                <h3 style={{ marginBottom: '0.4rem' }}>{col.name}</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {col.description || <em style={{ opacity: 0.5 }}>No description</em>}
+                </p>
               </div>
               <div className="note-count-badge">
                 📝 <span>{col.note_count ?? 0} note{col.note_count !== 1 ? 's' : ''}</span>
               </div>
-              <div className="collection-actions">
+              <div className="collection-actions" onClick={e => e.stopPropagation()}>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setViewCol(col)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  👁️ View Notes
+                </button>
                 <button
                   className="btn btn-sm btn-secondary"
                   onClick={() => setModal({ mode: 'edit', collection: col })}
@@ -201,14 +300,12 @@ export default function Collections() {
                   ✏️ Edit
                 </button>
                 <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => handleDelete(col.id, col.name)}
+                  className="btn btn-sm btn-danger btn-icon"
+                  onClick={e => handleDelete(col.id, col.name, e)}
                   disabled={deletingId === col.id}
+                  title="Delete"
                 >
-                  {deletingId === col.id
-                    ? <span className="spinner spinner-sm" />
-                    : '🗑️ Delete'
-                  }
+                  {deletingId === col.id ? <span className="spinner spinner-sm" /> : '🗑️'}
                 </button>
               </div>
             </div>
@@ -216,6 +313,15 @@ export default function Collections() {
         </div>
       )}
 
+      {/* View Notes Modal */}
+      {viewCol && (
+        <CollectionNotesModal
+          collection={viewCol}
+          onClose={() => setViewCol(null)}
+        />
+      )}
+
+      {/* Edit / Create Modal */}
       {modal && (
         <CollectionModal
           mode={modal.mode}
