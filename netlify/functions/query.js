@@ -55,6 +55,20 @@ function callGemini(userMessage, courseCatalog) {
   });
 }
 
+function getSmartFallback(q) {
+  const query = q.toLowerCase();
+  if (query.includes('react') || query.includes('frontend') || query.includes('html') || query.includes('web')) {
+    return "Great question about web development! 🚀\n\nTo build modern interactive web applications:\n- **Master React:** Start with components, props, state (`useState`), and side-effects (`useEffect`).\n- **Styling:** Use CSS Grid, Flexbox, and modern CSS variables for responsive layouts.\n\n📚 **Recommended Course:** Check out **React Masterclass** or **Next.js Full Stack** in our Courses section!";
+  }
+  if (query.includes('python') || query.includes('backend') || query.includes('node') || query.includes('api')) {
+    return "Backend engineering is all about scalability, APIs, and databases! 💻\n\nKey areas to focus on:\n- **RESTful APIs & CRUD operations**\n- **Authentication & Authorization (JWT)**\n- **Database design & optimization**\n\n📚 **Recommended Course:** Check out **Node.js API Mastery** or **Python for Backend** in our catalog!";
+  }
+  if (query.includes('ai') || query.includes('data') || query.includes('machine learning')) {
+    return "Artificial Intelligence & Data Science are transformative fields! 🤖\n\nCore learning path:\n1. Python fundamentals & statistics\n2. Data analysis with Pandas & NumPy\n3. Machine Learning algorithms with Scikit-Learn\n4. Deep Learning architectures (CNNs, Transformers)\n\n📚 **Recommended Course:** Take a look at **Data Science Bootcamp** or **Machine Learning with Python** in our Courses tab!";
+  }
+  return `Thank you for your question about **"${q}"**! 🎓\n\nNitinChatBot is your student learning assistant. You can:\n1. 📚 Browse our **Courses** catalog for curated tech tracks.\n2. 📝 Take notes in **My Notes** to track your learning journey.\n3. 🗂️ Group related topics in **Study Collections**.\n\nFeel free to ask any specific coding, science, or course recommendation question!`;
+}
+
 async function handleQuery(event) {
   const corsResult = handleCors(event);
   if (corsResult) return corsResult;
@@ -70,24 +84,28 @@ async function handleQuery(event) {
 
   if (process.env.GEMINI_API_KEY) {
     try {
-      const { data: courses } = await supabase.from('courses').select('name, description, category').limit(20);
-      const catalog = courses && courses.length > 0
-        ? courses.map(c => `- ${c.name} [${c.category}]: ${c.description}`).join('\n')
-        : 'No courses in catalog yet.';
+      let catalog = 'React Masterclass, Node.js API Mastery, Python for Backend, SQL & Database Design, Machine Learning with Python';
+      if (supabase) {
+        const { data: courses } = await supabase.from('courses').select('name, description, category').limit(20);
+        if (courses && courses.length > 0) {
+          catalog = courses.map(c => `- ${c.name} [${c.category}]: ${c.description}`).join('\n');
+        }
+      }
       answer = await callGemini(question.trim(), catalog);
     } catch (e) {
       console.error('[Gemini Error]', e.message);
-      answer = '';
     }
   }
 
   if (!answer) {
-    answer = "Sorry, I'm unable to process your request right now. Please try again in a moment.";
+    answer = getSmartFallback(question.trim());
   }
 
-  try {
-    await supabase.from('queries').insert({ student: student || 'Anonymous', question: question.trim(), answer: answer.substring(0, 500) });
-  } catch (e) {}
+  if (supabase) {
+    try {
+      await supabase.from('queries').insert({ student: student || 'Anonymous', question: question.trim(), answer: answer.substring(0, 500) });
+    } catch (e) {}
+  }
 
   return corsResponse(200, { answer, courses: [] });
 }

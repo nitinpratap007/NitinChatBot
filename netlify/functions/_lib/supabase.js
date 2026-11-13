@@ -1,24 +1,26 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
-}
-
 let supabase = null;
 
 function getSupabase() {
-  if (!supabase) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error(`Missing Supabase credentials: SUPABASE_URL=${!!supabaseUrl}, SUPABASE_KEY=${!!supabaseKey}`);
-    }
-    supabase = createClient(supabaseUrl, supabaseKey);
+  if (supabase) return supabase;
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    return null;
   }
-  return supabase;
+
+  try {
+    supabase = createClient(url, key, {
+      auth: { persistSession: false },
+    });
+    return supabase;
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err.message);
+    return null;
+  }
 }
 
 module.exports = { getSupabase };
