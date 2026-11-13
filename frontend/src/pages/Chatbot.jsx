@@ -11,48 +11,20 @@ const WELCOME = {
   role: 'bot',
   html: marked.parse(
     "👋 **Hello! I'm NitinChatBot** — your AI-powered learning assistant.\n\n" +
-    "Ask me **anything** — coding questions, math explanations, engineering concepts, or course recommendations!\n\n" +
-    "💡 *Tip: Click '🔑 Set Gemini API Key' in the top right to use your personal Google Gemini API key directly!*"
+    "Ask me **anything** — coding questions, math problems, system design, or which courses match your career goals!\n\n" +
+    "*Type your question below and hit Enter!*"
   ),
 };
 
 export default function Chatbot() {
-  const [messages,    setMessages]    = useState([WELCOME]);
-  const [input,       setInput]       = useState('');
-  const [loading,     setLoading]     = useState(false);
-  const [apiKeyModal, setApiKeyModal] = useState(false);
-  const [customKey,   setCustomKey]   = useState(() => localStorage.getItem('ncb_gemini_key') || '');
-  const [keyInput,    setKeyInput]    = useState('');
+  const [messages, setMessages] = useState([WELCOME]);
+  const [input,    setInput]    = useState('');
+  const [loading,  setLoading]  = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  function saveApiKey(e) {
-    e.preventDefault();
-    const key = keyInput.trim();
-    if (key) {
-      localStorage.setItem('ncb_gemini_key', key);
-      setCustomKey(key);
-      setApiKeyModal(false);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now(),
-          role: 'bot',
-          html: marked.parse('✅ **Gemini API Key saved successfully!** All your queries will now be answered directly by Google Gemini AI.'),
-        }
-      ]);
-    }
-  }
-
-  function removeApiKey() {
-    localStorage.removeItem('ncb_gemini_key');
-    setCustomKey('');
-    setKeyInput('');
-    setApiKeyModal(false);
-  }
 
   async function handleSend(e) {
     e.preventDefault();
@@ -74,7 +46,7 @@ export default function Chatbot() {
         {
           id: Date.now() + 1,
           role: 'bot',
-          html: marked.parse(`⚠️ **Error:** ${err.message}\n\nPlease try again in a moment.`),
+          html: marked.parse(`⚠️ **Notice:** ${err.message}\n\nPlease try again in a moment.`),
           isError: true,
         },
       ]);
@@ -92,15 +64,8 @@ export default function Chatbot() {
       <div className="page-header">
         <div>
           <h1>🤖 AI Learning Assistant</h1>
-          <p>Powered by Google Gemini — instant answers, code generation & recommendations</p>
+          <p>Powered by Gemini — real-time coding assistance, explanations & study advice</p>
         </div>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => { setKeyInput(customKey); setApiKeyModal(true); }}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: customKey ? '1px solid #10b981' : '1px solid var(--card-border)' }}
-        >
-          {customKey ? '🔑 Gemini Key Active' : '🔑 Set Gemini API Key'}
-        </button>
       </div>
 
       <div className="card chat-wrap">
@@ -133,7 +98,7 @@ export default function Chatbot() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything… (e.g. 'Write a Python function for sorting' or 'Recommend a course')"
+            placeholder="Ask anything… (e.g., 'Explain binary search trees' or 'How do React hooks work?')"
             disabled={loading}
             aria-label="Chat input"
           />
@@ -152,60 +117,6 @@ export default function Chatbot() {
           </button>
         </form>
       </div>
-
-      {/* ── Gemini API Key Modal ── */}
-      {apiKeyModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setApiKeyModal(false); }}>
-          <div className="modal" style={{ maxWidth: 500 }}>
-            <div className="modal-header">
-              <h2>🔑 Google Gemini API Key</h2>
-              <button className="modal-close" onClick={() => setApiKeyModal(false)}>×</button>
-            </div>
-
-            <form onSubmit={saveApiKey}>
-              <div className="modal-body">
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
-                  Paste your personal Gemini API key here. It is stored securely in your browser's local storage and used directly to generate AI responses.
-                </p>
-
-                <div className="form-group">
-                  <label>Gemini API Key</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={keyInput}
-                    onChange={e => setKeyInput(e.target.value)}
-                    placeholder="AIzaSy..."
-                    required
-                  />
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
-                    Don't have a key? Get one free at{' '}
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
-                      Google AI Studio ↗
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-                {customKey ? (
-                  <button type="button" className="btn btn-danger btn-sm" onClick={removeApiKey}>
-                    Remove Key
-                  </button>
-                ) : <div />}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setApiKeyModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary btn-sm">
-                    Save Key
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   );
 }

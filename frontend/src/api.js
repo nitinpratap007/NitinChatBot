@@ -321,3 +321,151 @@ export async function sendQuery(question, student = 'Student') {
 
   return { answer, courses: [] };
 }
+
+// ── Admin Authentication & Session Security ──────────────────
+export function isAdminLoggedIn() {
+  return !!localStorage.getItem('ncb_admin_session');
+}
+
+export async function adminLogin(password) {
+  const currentPassword = localStorage.getItem('ncb_admin_password') || 'admin123';
+  if (password === currentPassword) {
+    const sessionToken = 'admin_sess_' + Math.random().toString(36).substring(2) + Date.now();
+    localStorage.setItem('ncb_admin_session', sessionToken);
+    return { success: true, token: sessionToken };
+  }
+  throw new Error('Invalid Admin Password. Access Denied.');
+}
+
+export function adminLogout() {
+  localStorage.removeItem('ncb_admin_session');
+}
+
+export function updateAdminPassword(oldPass, newPass) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  const current = localStorage.getItem('ncb_admin_password') || 'admin123';
+  if (oldPass !== current) throw new Error('Current password does not match.');
+  if (!newPass || newPass.trim().length < 4) throw new Error('New password must be at least 4 characters.');
+  localStorage.setItem('ncb_admin_password', newPass.trim());
+  return { success: true };
+}
+
+// ── Secure System API Key (Admin Only) ───────────────────────
+export function getAdminApiKey() {
+  if (!isAdminLoggedIn()) return '';
+  return localStorage.getItem('ncb_gemini_key') || '';
+}
+
+export function saveAdminApiKey(key) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  localStorage.setItem('ncb_gemini_key', (key || '').trim());
+  return { success: true };
+}
+
+export function removeAdminApiKey() {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  localStorage.removeItem('ncb_gemini_key');
+  return { success: true };
+}
+
+// ── Useful Platforms (Admin Managed / Student Used) ──────────
+const INITIAL_PLATFORMS = [
+  { id: 1, name: 'LeetCode', url: 'https://leetcode.com', category: 'Coding & DSA', description: 'Premier platform for practicing data structures, algorithms, and technical interview preparation.', icon: '💻' },
+  { id: 2, name: 'GitHub', url: 'https://github.com', category: 'Development Tools', description: 'Leading platform for code hosting, git version control, and open-source project collaboration.', icon: '🐙' },
+  { id: 3, name: 'MDN Web Docs', url: 'https://developer.mozilla.org', category: 'Documentation', description: 'Authoritative, comprehensive reference and guides for HTML, CSS, JavaScript, and Web APIs.', icon: '📖' },
+  { id: 4, name: 'GeeksforGeeks', url: 'https://www.geeksforgeeks.org', category: 'Computer Science', description: 'Well-explained tutorials, article guides, and DSA code snippets across all major languages.', icon: '🟢' },
+  { id: 5, name: 'Kaggle', url: 'https://www.kaggle.com', category: 'AI & Data Science', description: 'Community for data scientists and ML engineers with free datasets, benchmarks, and notebooks.', icon: '📊' },
+  { id: 6, name: 'freeCodeCamp', url: 'https://www.freecodecamp.org', category: 'Interactive Learning', description: 'Free certifications and hands-on coding curriculum covering web development and Python.', icon: '🔥' }
+];
+
+export function fetchPlatforms() {
+  return getLocal('platforms', INITIAL_PLATFORMS);
+}
+
+export function addPlatform(platform) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  const list = fetchPlatforms();
+  const newItem = {
+    id: Date.now(),
+    name: platform.name.trim(),
+    url: platform.url.trim(),
+    category: platform.category?.trim() || 'General Learning',
+    description: platform.description?.trim() || '',
+    icon: platform.icon?.trim() || '🌐',
+    created_at: new Date().toISOString()
+  };
+  const updated = [newItem, ...list];
+  setLocal('platforms', updated);
+  return newItem;
+}
+
+export function deletePlatform(id) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  const updated = fetchPlatforms().filter(p => String(p.id) !== String(id));
+  setLocal('platforms', updated);
+  return { success: true };
+}
+
+// ── Admin Curated Notes & PDF Study Materials ─────────────────
+const INITIAL_PDFS = [
+  {
+    id: 1,
+    title: 'React 18 Comprehensive Cheatsheet (PDF)',
+    category: 'Frontend Engineering',
+    description: 'Concise guide covering Hooks, Suspense, Concurrent Rendering, and performance optimization rules.',
+    url: 'https://react.dev/learn',
+    fileType: 'PDF Document',
+    pages: '32 Pages',
+    created_at: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    id: 2,
+    title: 'PostgreSQL & Database Normalization Handbook',
+    category: 'Databases & SQL',
+    description: 'In-depth notes on 1NF through BCNF, ACID transactions, B-Tree indexing, and query plan tuning.',
+    url: 'https://www.postgresql.org/docs/',
+    fileType: 'PDF / Document',
+    pages: '48 Pages',
+    created_at: new Date(Date.now() - 43200000).toISOString()
+  },
+  {
+    id: 3,
+    title: 'Data Structures & Algorithms Formula Sheet',
+    category: 'Computer Science',
+    description: 'Complexity reference sheet (Big-O), binary tree traversals, dynamic programming patterns, and graph algorithms.',
+    url: 'https://en.wikipedia.org/wiki/List_of_data_structures',
+    fileType: 'PDF Reference',
+    pages: '24 Pages',
+    created_at: new Date(Date.now() - 21600000).toISOString()
+  }
+];
+
+export function fetchCuratedMaterials() {
+  return getLocal('curated_pdfs', INITIAL_PDFS);
+}
+
+export function addCuratedMaterial(material) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  const list = fetchCuratedMaterials();
+  const newItem = {
+    id: Date.now(),
+    title: material.title.trim(),
+    category: material.category?.trim() || 'Study Resource',
+    description: material.description?.trim() || '',
+    url: material.url.trim(),
+    fileType: material.fileType?.trim() || 'PDF Resource',
+    pages: material.pages?.trim() || 'Downloadable',
+    created_at: new Date().toISOString()
+  };
+  const updated = [newItem, ...list];
+  setLocal('curated_pdfs', updated);
+  return newItem;
+}
+
+export function deleteCuratedMaterial(id) {
+  if (!isAdminLoggedIn()) throw new Error('Unauthorized');
+  const updated = fetchCuratedMaterials().filter(m => String(m.id) !== String(id));
+  setLocal('curated_pdfs', updated);
+  return { success: true };
+}
+
